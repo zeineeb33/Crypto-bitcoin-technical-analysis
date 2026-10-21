@@ -1,0 +1,16 @@
+# Render Blueprint: Dashboard -> New -> Blueprint -> select this repository.
+services:
+  - type: web
+    name: cryptosignal
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: CRYPTOSIGNAL_TICKERS
+        value: '["BTC-USD","ETH-USD"]'
+      - key: CRYPTOSIGNAL_SERVE__REFRESH_MINUTES
+        value: "360"
+      - key: CRYPTOSIGNAL_LOG_LEVEL
+        value: INFO

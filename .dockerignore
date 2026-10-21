@@ -1,0 +1,17 @@
+.git
+.github
+.venv
+**/__pycache__
+.ruff_cache
+.mypy_cache
+.pytest_cache
+.coverage
+data
+models
+artifacts
+mlruns
+notebooks
+tests
+configs
+Dockerfile
+render.yaml
