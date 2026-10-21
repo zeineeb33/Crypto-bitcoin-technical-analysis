@@ -42,7 +42,7 @@ def make_model(kind: ModelKind, cfg: ModelSettings) -> ClassifierMixin:
             Pipeline(
                 [
                     ("scale", StandardScaler()),
-                    ("clf", LogisticRegression(C=cfg.logreg_c, max_iter=2000)),
+                    ("clf", LogisticRegression(C=cfg.logreg_c, solver="newton-cholesky")),
                 ]
             ),
         )

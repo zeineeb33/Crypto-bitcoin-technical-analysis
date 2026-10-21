@@ -2,20 +2,27 @@
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from cryptosignal import __version__, pipeline
-from cryptosignal.config import ModelKind, Settings, load_settings, normalise_ticker
+from cryptosignal.config import (
+    CONFIG_ENV_VAR,
+    ModelKind,
+    Settings,
+    load_settings,
+    normalise_ticker,
+)
 from cryptosignal.data.ingest import ingest as ingest_data
 from cryptosignal.data.ingest import load_market_data
 from cryptosignal.data.providers import CSVProvider, DataProviderError, YFinanceProvider
 from cryptosignal.data.validation import DataValidationError
 from cryptosignal.features import make_dataset
-from cryptosignal.logging_utils import setup_logging
 from cryptosignal.models import TrainedModel
+from cryptosignal.runtime import configure_runtime
 
 logger = logging.getLogger("cryptosignal")
 
@@ -45,7 +52,9 @@ class _State:
 @app.callback()
 def main(config: ConfigOption = None) -> None:
     settings = load_settings(config)
-    setup_logging(settings.log_level)
+    if config is not None:  # let the API factory (`serve`) pick the same file up
+        os.environ[CONFIG_ENV_VAR] = str(config.resolve())
+    configure_runtime(settings)
     _State.settings = settings
 
 
@@ -155,3 +164,26 @@ def predict(tickers: TickersOption = None, model: ModelOption = None) -> None:
     except PIPELINE_ERRORS as exc:
         raise _fail(exc) from exc
     typer.echo(json.dumps(out, indent=2))
+
+
+@app.command()
+def serve(
+    host: Annotated[
+        str, typer.Option(help="Bind address (use 0.0.0.0 in containers).")
+    ] = "127.0.0.1",
+    port: Annotated[int, typer.Option(envvar="PORT", help="Port; reads $PORT.")] = 8000,
+    reload: Annotated[bool, typer.Option(help="Auto-reload on code changes (dev).")] = False,
+) -> None:
+    """Serve the API and dashboard with uvicorn."""
+    import uvicorn  # noqa: PLC0415 - only needed for this command
+
+    uvicorn.run(
+        "cryptosignal.api.app:create_app",
+        factory=True,
+        host=host,
+        port=port,
+        reload=reload,
+        proxy_headers=True,
+        forwarded_allow_ips="*",
+        log_level=_settings().log_level.lower(),
+    )

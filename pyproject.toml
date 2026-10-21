@@ -8,13 +8,16 @@ license-files = ["LICENSE"]
 authors = [{ name = "Zeineb Jemli" }]
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "fastapi>=0.156.8",
     "numpy>=2.5.4",
     "pandas>=3.0.6",
     "pydantic>=2.14.1",
     "pydantic-settings>=2.16.1",
     "pyyaml>=6.0.3",
     "scikit-learn>=1.9.1",
+    "threadpoolctl>=3.7.0",
     "typer>=0.27.3",
+    "uvicorn>=0.54.0",
     "yfinance>=1.7.0",
 ]
 
@@ -69,6 +72,7 @@ ignore_missing_imports = true
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "mypy>=2.4.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",

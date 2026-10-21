@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>cryptosignal dashboard</title>
+    <meta name="description" content="Next-day direction signals, technical indicators and walk-forward backtests for crypto assets." />
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js" defer></script>
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <h1>cryptosignal</h1>
+        <p class="muted">Walk-forward ML signals for crypto, honestly evaluated.</p>
+      </div>
+      <div class="controls" role="group" aria-label="Filters">
+        <label>Ticker
+          <select id="ticker" aria-label="Ticker"></select>
+        </label>
+        <div class="segmented" id="range" role="radiogroup" aria-label="Price history range">
+          <button type="button" data-days="90" role="radio">3M</button>
+          <button type="button" data-days="365" role="radio" aria-checked="true">1Y</button>
+          <button type="button" data-days="1095" role="radio">3Y</button>
+          <button type="button" data-days="5000" role="radio">All</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <p id="notice" class="notice" hidden></p>
+
+      <section class="tiles" aria-label="Latest signal and backtest summary">
+        <article class="tile signal" id="signal-tile">
+          <h2>Next-day signal</h2>
+          <p class="hero" id="signal-value">-</p>
+          <p class="sub" id="signal-sub">Loading...</p>
+          <p class="meta" id="signal-meta"></p>
+        </article>
+        <article class="tile">
+          <h2>Direction accuracy</h2>
+          <p class="hero" id="kpi-acc">-</p>
+          <p class="sub" id="kpi-acc-sub"></p>
+        </article>
+        <article class="tile">
+          <h2>ROC-AUC</h2>
+          <p class="hero" id="kpi-auc">-</p>
+          <p class="sub">0.5 means no better than chance</p>
+        </article>
+        <article class="tile">
+          <h2>Sharpe, net of costs</h2>
+          <p class="hero" id="kpi-sharpe">-</p>
+          <p class="sub" id="kpi-sharpe-sub"></p>
+        </article>
+        <article class="tile">
+          <h2>Max drawdown</h2>
+          <p class="hero" id="kpi-dd">-</p>
+          <p class="sub" id="kpi-dd-sub"></p>
+        </article>
+      </section>
+
+      <section class="card" aria-labelledby="price-title">
+        <div class="card-head">
+          <h2 id="price-title">Price &amp; indicators</h2>
+          <p class="muted">Candles with SMA overlays, volume, MACD and RSI. Arrows mark the notebook's MACD crossovers.</p>
+        </div>
+        <div class="legend" id="price-legend" aria-live="polite"></div>
+        <div class="chart chart-price" id="price-chart"></div>
+      </section>
+
+      <section class="card" aria-labelledby="equity-title">
+        <div class="card-head">
+          <h2 id="equity-title">Walk-forward equity curve</h2>
+          <p class="muted" id="equity-sub">Growth of $1, out-of-sample, net of transaction costs (log scale). Click a legend entry to toggle it.</p>
+        </div>
+        <div class="legend" id="equity-legend" aria-live="polite"></div>
+        <div class="chart chart-equity" id="equity-chart"></div>
+      </section>
+
+      <section class="card" aria-labelledby="table-title">
+        <div class="card-head">
+          <h2 id="table-title">Backtest results</h2>
+          <p class="muted" id="table-sub"></p>
+        </div>
+        <div class="table-wrap">
+          <table id="strategy-table">
+            <caption>Long/flat strategies, net of costs</caption>
+            <thead><tr><th scope="col">Strategy</th><th scope="col">Total return</th><th scope="col">CAGR</th><th scope="col">Sharpe</th><th scope="col">Max drawdown</th><th scope="col">Exposure</th><th scope="col">Trades</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="table-wrap">
+          <table id="class-table">
+            <caption>Next-day direction</caption>
+            <thead><tr><th scope="col">Predictor</th><th scope="col">Accuracy</th><th scope="col">95% CI</th><th scope="col">ROC-AUC</th><th scope="col">Predicts up</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p><strong>Not financial advice.</strong> Educational project: daily crypto direction is close to a coin flip, and this page shows exactly how close.</p>
+      <p><a href="/docs">API docs</a> · <a href="https://github.com/zeineeb33/Crypto-bitcoin-technical-analysis">Source on GitHub</a></p>
+    </footer>
+  </body>
+</html>

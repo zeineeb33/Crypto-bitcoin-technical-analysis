@@ -111,6 +111,9 @@ class Settings(BaseSettings):
 
     tickers: list[str] = Field(default_factory=lambda: ["BTC-USD", "ETH-USD"], min_length=1)
     log_level: str = "INFO"
+    threads: int = Field(
+        1, ge=1, description="BLAS/OpenMP threads; small daily datasets are fastest on one."
+    )
     artifacts_dir: Path = Path("artifacts")
     models_dir: Path = Path("models")
     data: DataSettings = Field(default_factory=DataSettings)

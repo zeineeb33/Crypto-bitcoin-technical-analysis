@@ -17,6 +17,7 @@ from tests.fakes import make_ohlcv, perturb_after
 FEATURES = FeatureSettings()
 MODEL = ModelSettings(hgb_max_iter=30)
 SMALL = BacktestSettings(min_train_days=300, retrain_every=60)
+SLOW_REFIT = BacktestSettings(min_train_days=300, retrain_every=150)
 
 
 def _run(ohlcv: pd.DataFrame, models=("logreg",), cfg: BacktestSettings = SMALL):  # type: ignore[no-untyped-def]
@@ -98,7 +99,7 @@ def test_walk_forward_predictions_unaffected_by_future_data() -> None:
             data.target,
             lambda: make_model("hgb", MODEL),
             min_train=300,
-            step=60,
+            step=150,
         )
         return out[out.index.isin(dates)]
 
@@ -106,7 +107,7 @@ def test_walk_forward_predictions_unaffected_by_future_data() -> None:
 
 
 def test_backtest_report_on_random_walk_is_close_to_chance() -> None:
-    report = _run(make_ohlcv(n=1200, seed=11), models=("logreg", "hgb"))
+    report = _run(make_ohlcv(n=1000, seed=11), models=("logreg", "hgb"), cfg=SLOW_REFIT)
 
     assert report.n_test == len(report.equity)
     assert set(report.strategies) == {

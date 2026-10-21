@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 import urllib3  # noqa: F401 - probes IPv6 with a socket at import; do it before sockets are blocked
+from threadpoolctl import threadpool_limits
 
 from cryptosignal.config import Settings
 from tests.fakes import FakeProvider, make_ohlcv
@@ -34,6 +35,13 @@ def settings(tmp_path: Path) -> Settings:
         model={"hgb_max_iter": 30},  # type: ignore[arg-type]
         serve={"warmup": False},  # type: ignore[arg-type]
     )
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _single_thread() -> None:
+    """Same as the runtime default (settings.threads=1); much faster on tiny datasets.
+    Runs after collection, once scikit-learn's OpenMP/BLAS libraries are loaded."""
+    threadpool_limits(limits=1)
 
 
 @pytest.fixture(autouse=True)
