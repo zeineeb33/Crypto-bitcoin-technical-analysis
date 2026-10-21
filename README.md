@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/zeineeb33/Crypto-bitcoin-technical-analysis/actions/workflows/ci.yml/badge.svg)](https://github.com/zeineeb33/Crypto-bitcoin-technical-analysis/actions/workflows/ci.yml)
 
+**Live demo:** https://cryptosignal-u2l4.onrender.com (free Render instance: the first request after a period of inactivity can take up to a minute while it wakes up) · [API docs](https://cryptosignal-u2l4.onrender.com/docs)
+
 This project ingests daily BTC/ETH prices, validates them, and builds technical-indicator features with no look-ahead. It then trains next-day direction classifiers and evaluates them with a walk-forward backtest, against naive baselines and after transaction costs. The models are served from a FastAPI service with a dashboard, deployable on Render's free tier. **It does not claim to beat the market.** Daily crypto direction is close to a coin flip, and the backtest shows that. The point of the project is the engineering: reproducible data, leakage tests, honest evaluation, serving, CI and deployment.
 
 ## Architecture
