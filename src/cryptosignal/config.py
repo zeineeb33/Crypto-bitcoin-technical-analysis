@@ -22,6 +22,7 @@ from pydantic_settings import (
 
 ModelKind = Literal["logreg", "hgb"]
 TICKER_PATTERN = re.compile(r"^[A-Z0-9][A-Z0-9.\-=^]{0,19}$")
+PERIOD_PATTERN = re.compile(r"^(\d+(d|mo|y)|ytd|max)$")
 CONFIG_ENV_VAR = "CRYPTOSIGNAL_CONFIG"
 
 
@@ -37,6 +38,13 @@ class DataSettings(_Section):
     drop_incomplete_bar: bool = Field(
         True, description="Drop today's (still forming) UTC daily bar before computing features."
     )
+
+    @field_validator("period")
+    @classmethod
+    def _check_period(cls, period: str) -> str:
+        if not PERIOD_PATTERN.match(period):
+            raise ValueError(f"invalid period {period!r} (expected e.g. '730d', '5y', 'max')")
+        return period
 
 
 class FeatureSettings(_Section):
