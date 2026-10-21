@@ -1,0 +1,53 @@
+name: pipeline
+
+# Weekly retrain + walk-forward backtest. Results are published as workflow artifacts
+# and a job summary; nothing is committed back to the repository.
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      tickers:
+        description: "Space-separated tickers (empty = configured defaults)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pipeline
+  cancel-in-progress: false
+
+jobs:
+  train-and-backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TICKERS: ${{ inputs.tickers }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.12.21"
+          enable-cache: true
+      - run: uv sync --frozen --no-dev
+      - name: Ingest
+        run: uv run cryptosignal ingest $(for t in $TICKERS; do printf -- '--ticker %s ' "$t"; done)
+      - name: Train
+        run: uv run cryptosignal train $(for t in $TICKERS; do printf -- '--ticker %s ' "$t"; done)
+      - name: Backtest
+        run: uv run cryptosignal backtest $(for t in $TICKERS; do printf -- '--ticker %s ' "$t"; done)
+      - name: Job summary
+        run: |
+          cat artifacts/report.md >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cat artifacts/model_card.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pipeline-${{ github.run_number }}
+          path: |
+            artifacts/
+            models/
+            data/raw/*.validation.json
+          retention-days: 30
