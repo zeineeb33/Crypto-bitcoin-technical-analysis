@@ -45,3 +45,13 @@ class FakeProvider:
         if ticker not in self.frames:
             raise DataProviderError(f"unknown ticker {ticker}")
         return self.frames[ticker].copy()
+
+
+def perturb_after(ohlcv: pd.DataFrame, position: int, seed: int = 0) -> pd.DataFrame:
+    """Return a copy where every bar after ``position`` is replaced by random garbage."""
+    rng = np.random.default_rng(seed)
+    future = ohlcv.copy()
+    n_future = len(future) - position - 1
+    scale = rng.uniform(0.2, 5.0, size=(n_future, 1))
+    future.iloc[position + 1 :] = future.iloc[position + 1 :].to_numpy() * scale
+    return future

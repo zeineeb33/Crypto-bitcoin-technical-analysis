@@ -48,3 +48,28 @@ def test_ingest(workdir: Path) -> None:
 def test_ingest_unknown_ticker_fails_cleanly(workdir: Path) -> None:
     result = runner.invoke(cli.app, ["ingest", "--ticker", "DOGE-USD"])
     assert result.exit_code == 1
+
+
+def test_full_pipeline_and_predict(workdir: Path) -> None:
+    result = runner.invoke(cli.app, ["run", "--ticker", "BTC-USD"])
+    assert result.exit_code == 0, result.output
+    assert "BTC-USD logreg: accuracy" in result.stdout
+    assert (workdir / "artifacts" / "report.md").is_file()
+    assert (workdir / "models" / "BTC-USD" / "logreg.joblib").is_file()
+
+    result = runner.invoke(cli.app, ["predict", "--ticker", "BTC-USD"])
+    assert result.exit_code == 0, result.output
+    signal = json.loads(result.stdout)["BTC-USD"]
+    assert signal["signal"] in {"long", "flat"}
+    assert 0 <= signal["probability_up"] <= 1
+
+
+def test_train_without_data_fails_cleanly(workdir: Path) -> None:
+    result = runner.invoke(cli.app, ["train", "--ticker", "BTC-USD"])
+    assert result.exit_code == 1
+
+
+def test_predict_without_model_fails_cleanly(workdir: Path) -> None:
+    assert runner.invoke(cli.app, ["ingest", "--ticker", "BTC-USD"]).exit_code == 0
+    result = runner.invoke(cli.app, ["predict", "--ticker", "BTC-USD", "--model", "hgb"])
+    assert result.exit_code == 1

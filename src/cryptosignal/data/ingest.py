@@ -52,6 +52,8 @@ def ingest(
         df, report = load_market_data(provider, ticker, settings, today=today)
         path = store.save(ticker, df)
         path.with_suffix(".validation.json").write_text(json.dumps(report.to_dict(), indent=2))
-        logger.info("%s: %d bars %s -> %s saved to %s", ticker, len(df), report.start, report.end, path)
+        logger.info(
+            "%s: %d bars %s -> %s saved to %s", ticker, len(df), report.start, report.end, path
+        )
         reports[ticker] = report
     return reports

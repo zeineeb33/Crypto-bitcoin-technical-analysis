@@ -6,6 +6,7 @@ the pipeline; warnings are logged and kept in the report.
 """
 
 import logging
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, date, datetime
 from enum import StrEnum
@@ -102,6 +103,79 @@ def clean_ohlcv(
     return out, issues
 
 
+# Row-level checks: (name, severity, row mask, message template).
+_ROW_CHECKS: list[tuple[str, Severity, Callable[[pd.DataFrame], pd.Series], str]] = [
+    (
+        "missing_values",
+        Severity.ERROR,
+        lambda df: df[["open", "high", "low", "close"]].isna().any(axis=1),
+        "{n} rows with missing prices",
+    ),
+    (
+        "non_positive_price",
+        Severity.ERROR,
+        lambda df: (df[["open", "high", "low", "close"]] <= 0).any(axis=1),
+        "{n} rows with price <= 0",
+    ),
+    ("negative_volume", Severity.ERROR, lambda df: df["volume"] < 0, "{n} rows with volume < 0"),
+    ("zero_volume", Severity.WARNING, lambda df: df["volume"] == 0, "{n} rows with zero volume"),
+    (
+        "high_below_low",
+        Severity.ERROR,
+        lambda df: df["high"] < df["low"],
+        "{n} rows with high < low",
+    ),
+    (
+        "ohlc_consistency",
+        Severity.WARNING,
+        lambda df: (
+            (df["high"] < np.maximum(df["open"], df["close"]))
+            | (df["low"] > np.minimum(df["open"], df["close"]))
+        ),
+        "{n} bars with open/close outside high/low",
+    ),
+    (
+        "extreme_moves",
+        Severity.WARNING,
+        lambda df: df["close"].pct_change().abs() > EXTREME_DAILY_MOVE,
+        f"{{n}} daily moves above {EXTREME_DAILY_MOVE:.0%}",
+    ),
+]
+
+
+def _structure_issues(df: pd.DataFrame, min_rows: int) -> list[Issue]:
+    missing = [c for c in OHLCV_COLUMNS if c not in df.columns]
+    if missing:
+        return [Issue("schema", Severity.ERROR, f"missing columns {missing}", len(missing))]
+    if not isinstance(df.index, pd.DatetimeIndex):
+        return [Issue("schema", Severity.ERROR, "index is not a DatetimeIndex")]
+    issues = []
+    if len(df) < min_rows:
+        issues.append(
+            Issue("min_rows", Severity.ERROR, f"{len(df)} rows < required {min_rows}", len(df))
+        )
+    if not df.index.is_monotonic_increasing:
+        issues.append(Issue("ordering", Severity.ERROR, "index is not sorted in increasing order"))
+    if (n := int(df.index.duplicated().sum())) > 0:
+        issues.append(Issue("duplicates", Severity.ERROR, f"{n} duplicate dates", n))
+    return issues
+
+
+def _calendar_issues(df: pd.DataFrame, max_gap_days: int, today: date) -> list[Issue]:
+    issues = []
+    deltas = df.index.to_series().diff().dt.days.dropna()
+    gaps = deltas[deltas > 1]
+    if len(gaps):
+        largest = int(gaps.max())
+        severity = Severity.ERROR if largest > max_gap_days else Severity.WARNING
+        msg = f"{len(gaps)} calendar gaps, largest {largest} days (max allowed {max_gap_days})"
+        issues.append(Issue("gaps", severity, msg, len(gaps)))
+    age = (today - df.index.max().date()).days
+    if age > STALE_AFTER_DAYS:
+        issues.append(Issue("stale", Severity.WARNING, f"latest bar is {age} days old", age))
+    return issues
+
+
 def validate_ohlcv(
     df: pd.DataFrame,
     *,
@@ -117,59 +191,12 @@ def validate_ohlcv(
         start=str(df.index.min().date()) if len(df) else None,
         end=str(df.index.max().date()) if len(df) else None,
     )
-    add = report.issues.append
-
-    missing = [c for c in OHLCV_COLUMNS if c not in df.columns]
-    if missing:
-        add(Issue("schema", Severity.ERROR, f"missing columns {missing}", len(missing)))
-        return report
-    if not isinstance(df.index, pd.DatetimeIndex):
-        add(Issue("schema", Severity.ERROR, "index is not a DatetimeIndex"))
-        return report
-    if len(df) < min_rows:
-        add(Issue("min_rows", Severity.ERROR, f"{len(df)} rows < required {min_rows}", len(df)))
-    if len(df) == 0:
-        return report
-
-    if not df.index.is_monotonic_increasing:
-        add(Issue("ordering", Severity.ERROR, "index is not sorted in increasing order"))
-    if (n := int(df.index.duplicated().sum())) > 0:
-        add(Issue("duplicates", Severity.ERROR, f"{n} duplicate dates", n))
-
-    prices = df[["open", "high", "low", "close"]]
-    if (n := int(prices.isna().any(axis=1).sum())) > 0:
-        add(Issue("missing_values", Severity.ERROR, f"{n} rows with missing prices", n))
-    if (n := int((prices <= 0).any(axis=1).sum())) > 0:
-        add(Issue("non_positive_price", Severity.ERROR, f"{n} rows with price <= 0", n))
-    if (n := int((df["volume"] < 0).sum())) > 0:
-        add(Issue("negative_volume", Severity.ERROR, f"{n} rows with volume < 0", n))
-    if (n := int((df["volume"] == 0).sum())) > 0:
-        add(Issue("zero_volume", Severity.WARNING, f"{n} rows with zero volume", n))
-    if (n := int((df["high"] < df["low"]).sum())) > 0:
-        add(Issue("high_below_low", Severity.ERROR, f"{n} rows with high < low", n))
-
-    body_high = np.maximum(df["open"], df["close"])
-    body_low = np.minimum(df["open"], df["close"])
-    inconsistent = (df["high"] < body_high) | (df["low"] > body_low)
-    if (n := int(inconsistent.sum())) > 0:
-        add(Issue("ohlc_consistency", Severity.WARNING, f"{n} bars outside their high/low", n))
-
-    deltas = df.index.to_series().diff().dt.days.dropna()
-    gaps = deltas[deltas > 1]
-    if len(gaps):
-        largest = int(gaps.max())
-        severity = Severity.ERROR if largest > max_gap_days else Severity.WARNING
-        msg = f"{len(gaps)} calendar gaps, largest {largest} days (max allowed {max_gap_days})"
-        add(Issue("gaps", severity, msg, len(gaps)))
-
-    moves = df["close"].pct_change().abs()
-    if (n := int((moves > EXTREME_DAILY_MOVE).sum())) > 0:
-        msg = f"{n} daily moves above {EXTREME_DAILY_MOVE:.0%}"
-        add(Issue("extreme_moves", Severity.WARNING, msg, n))
-
-    age = ((today or utc_today()) - df.index.max().date()).days
-    if age > STALE_AFTER_DAYS:
-        add(Issue("stale", Severity.WARNING, f"latest bar is {age} days old", age))
+    report.issues += _structure_issues(df, min_rows)
+    if len(df) and not any(i.check == "schema" for i in report.issues):
+        for name, severity, mask, template in _ROW_CHECKS:
+            if (n := int(mask(df).sum())) > 0:
+                report.issues.append(Issue(name, severity, template.format(n=n), n))
+        report.issues += _calendar_issues(df, max_gap_days, today or utc_today())
 
     for issue in report.issues:
         log = logger.error if issue.severity is Severity.ERROR else logger.warning
