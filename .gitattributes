@@ -1,0 +1,2 @@
+# Keep the original university notebooks out of GitHub language stats
+*.ipynb linguist-documentation
